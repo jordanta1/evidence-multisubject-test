@@ -1,0 +1,49 @@
+name: per-artifact-attest
+on: [workflow_dispatch]
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build artifacts
+        run: |
+          mkdir out
+          for n in a b c; do echo "content-$n-$GITHUB_RUN_ID" > out/lib-$n-1.0.jar; done
+          echo '{"bomFormat":"CycloneDX","specVersion":"1.5","version":1}' > out/app-1.0-cyclonedx.json
+      - uses: actions/attest@v4
+        id: att-a
+        with:
+          subject-path: out/lib-a-1.0.jar
+          predicate-type: https://example.com/p/v1
+          predicate: '{"hello":"single-subject"}'
+      - run: mkdir -p bundles && cp "${{ steps.att-a.outputs.bundle-path }}" bundles/lib-a-1.0.jar.sigstore.json
+      - uses: actions/attest@v4
+        id: att-b
+        with:
+          subject-path: out/lib-b-1.0.jar
+          predicate-type: https://example.com/p/v1
+          predicate: '{"hello":"single-subject"}'
+      - run: mkdir -p bundles && cp "${{ steps.att-b.outputs.bundle-path }}" bundles/lib-b-1.0.jar.sigstore.json
+      - uses: actions/attest@v4
+        id: att-c
+        with:
+          subject-path: out/lib-c-1.0.jar
+          predicate-type: https://example.com/p/v1
+          predicate: '{"hello":"single-subject"}'
+      - run: mkdir -p bundles && cp "${{ steps.att-c.outputs.bundle-path }}" bundles/lib-c-1.0.jar.sigstore.json
+      - uses: actions/attest@v4
+        id: att-sbom
+        with:
+          subject-path: out/app-1.0-cyclonedx.json
+          predicate-type: https://example.com/p/v1
+          predicate: '{"hello":"single-subject"}'
+      - run: mkdir -p bundles && cp "${{ steps.att-sbom.outputs.bundle-path }}" bundles/app-1.0-cyclonedx.json.sigstore.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result
+          path: |
+            out/
+            bundles/
