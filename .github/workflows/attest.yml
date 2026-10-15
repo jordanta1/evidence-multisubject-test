@@ -1,0 +1,28 @@
+name: multi-subject-attest
+on: [workflow_dispatch]
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build artifacts
+        run: |
+          mkdir out
+          for n in a b c; do echo "content-$n-$GITHUB_RUN_ID" > out/lib-$n-1.0.jar; done
+          echo '{"bomFormat":"CycloneDX","specVersion":"1.5","version":1}' > out/app-1.0-cyclonedx.json
+          (cd out && sha256sum * > ../subjects.txt)
+          cat subjects.txt
+      - uses: actions/attest@v4
+        id: attest
+        with:
+          subject-checksums: subjects.txt
+          predicate-type: https://example.com/p/v1
+          predicate: '{"hello":"multi-subject"}'
+      - run: cp "${{ steps.attest.outputs.bundle-path }}" out/multi.sigstore.json; cp subjects.txt out/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result
+          path: out/
